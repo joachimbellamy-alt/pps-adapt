@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPS Adapt' — Système Collaboratif d'Aménagements</title>
+    <!-- Tailwind CSS pour un design ultra-moderne -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome pour des icônes élégantes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2 family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        },
+                        success: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Styles de transition et d'impression */
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+                font-size: 11px;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-full-width {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .print-checkbox-active {
+                background-color: #f1f5f9 !important;
+                border-left: 4px solid #059669 !important;
+            }
+            .print-break-avoid {
+                page-break-inside: avoid;
+            }
+        }
+        
+        .row-transition {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Effet de pulsation pour l'indicateur de sauvegarde */
+        @keyframes pulse-green {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+        .pulse-active {
+            animation: pulse-green 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- HEADER DE L'APPLICATION (Masqué à l'impression) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="showDashboardView()">
+                <div class="bg-brand-600 text-white p-2.5 rounded-xl shadow-md shadow-brand-500/20">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 tracking-tight">PPS Adapt' <span class="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full ml-1 font-semibold">Cloud Sync</span></h1>
+                    <p class="text-xs text-slate-500 font-medium">Portail Collaboratif & Suivi en Temps Réel</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <!-- Statut de synchronisation -->
+                <div id="sync-badge" class="hidden sm:inline-flex items-center space-x-1.5 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400 block" id="sync-dot"></span>
+                    <span id="sync-text">Mode Local</span>
+                </div>
+
+                <button onclick="openConfigModal()" class="inline-flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all">
+                    <i class="fa-solid fa-cloud"></i>
+                    <span class="hidden md:inline">Configuration Réseau</span>
+                </button>
+
+                <button id="btn-dashboard" onclick="showDashboardView()" class="hidden inline-flex items-center space-x-2 bg-brand-50 text-brand-700 hover:bg-brand-100 px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+                    <i class="fa-solid fa-table-columns"></i>
+                    <span>Tableau de bord</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFICATION PERSONNALISÉE -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-10 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-semibold">
+        <i id="toast-icon" class="fa-solid fa-circle-info text-brand-500"></i>
+        <span id="toast-message">Message d'information</span>
+    </div>
+
+    <!-- VUE 1 : TABLEAU DE BORD (DASHBOARD) -->
+    <main id="dashboard-view" class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 no-print">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-brand-900 to-slate-900 text-white p-6 rounded-3xl shadow-lg">
+            <div>
+                <h2 class="text-2xl font-extrabold tracking-tight">Suivi des Élèves à Besoins Particuliers</h2>
+                <p class="text-slate-300 text-xs mt-1">Gérez vos fiches d'accompagnement et collaborez en temps réel.</p>
+            </div>
+            <button onclick="openCreateStudentModal()" class="inline-flex items-center justify-center space-x-2 bg-white text-brand-900 hover:bg-brand-50 px-5 py-3 rounded-2xl text-sm font-bold transition-all shadow-sm">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Nouvel Élève</span>
+            </button>
+        </div>
+
+        <!-- Recherche et filtres de fiches -->
+        <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div class="relative w-full sm:max-w-md">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </span>
+                <input type="text" id="dashboard-search" placeholder="Rechercher un élève, une classe..." class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-2xl text-sm outline-none transition-all shadow-sm" oninput="renderDashboard()">
+            </div>
+            <div class="text-xs text-slate-500 font-medium" id="dashboard-count">0 élève enregistré</div>
+        </div>
+
+        <!-- Grille des cartes élèves -->
+        <div id="students-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Injecté en JS -->
+        </div>
+
+        <!-- État vide du dashboard -->
+        <div id="dashboard-empty" class="hidden text-center py-16 bg-white border border-slate-200 rounded-3xl">
+            <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+                <i class="fa-solid fa-users text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">Aucune fiche élève active</h3>
+            <p class="text-slate-500 text-xs max-w-sm mx-auto mt-1">Créez votre première fiche pour générer des aménagements scolaires synchronisés.</p>
+            <button onclick="openCreateStudentModal()" class="mt-4 inline-flex items-center space-x-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Créer un profil élève</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- VUE 2 : GRILLE D'ÉDITION D'UN ÉLÈVE -->
+    <main id="editor-view" class="hidden flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 print-full-width">
+        
+        <!-- SECTION ÉLÈVE & STATISTIQUES -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Informations élève -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm lg:col-span-2 flex flex-col justify-between print-full-width">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+                        <span class="text-xs font-bold text-brand-600 uppercase tracking-widest">Fiche d'adaptation individuelle</span>
+                        <span class="text-xs text-slate-400 no-print" id="last-saved">Données enregistrées</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nom de l'élève</label>
+                            <input type="text" id="student-name" placeholder="Ex: Jean DUPONT" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-slate-800 font-semibold text-sm transition-all outline-none" oninput="handleStudentFieldChange()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Classe / Niveau</label>
+                            <input type="text" id="student-class" placeholder="Ex: 6ème B" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-slate-800 font-semibold text-sm transition-all outline-none" oninput="handleStudentFieldChange()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Année Scolaire</label>
+                            <input type="text" id="school-year" placeholder="Ex: 2025-2026" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-slate-800 font-semibold text-sm transition-all outline-none" oninput="handleStudentFieldChange()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques / Avancement -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between no-print">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 mb-2">Aménagements sélectionnés</h3>
+                    <p class="text-xs text-slate-500 mb-4">Suivi global de la personnalisation pédagogique.</p>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex items-end justify-between">
+                        <span class="text-2xl font-extrabold text-slate-900" id="stats-count">0 <span class="text-sm font-normal text-slate-400">/ 83</span></span>
+                        <span class="text-sm font-bold text-success-600" id="stats-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div class="bg-success-500 h-2 rounded-full transition-all duration-300" id="stats-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-2">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="filter-active-only" class="sr-only peer" onchange="renderList()">
+                            <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success-500 relative"></div>
+                            <span class="ml-2 text-xs font-medium text-slate-600">Actifs uniquement</span>
+                        </label>
+                        
+                        <div class="flex space-x-2">
+                            <button onclick="window.print()" class="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-all">
+                                <i class="fa-solid fa-print mr-1"></i> PDF
+                            </button>
+                            <button onclick="generateShareLink()" class="text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">
+                                <i class="fa-solid fa-share-nodes mr-1"></i> Partager
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ZONE INTERACTIVE (Barre de recherche, Catégories, Liste d'aménagements) -->
+        <div class="flex flex-col lg:flex-row gap-6 items-start">
+            
+            <!-- SIDEBAR DES CATÉGORIES -->
+            <aside class="w-full lg:w-64 flex-shrink-0 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1 sticky top-24 no-print">
+                <div class="relative mb-4">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </span>
+                    <input type="text" id="search-bar" placeholder="Rechercher un aménagement..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl text-xs font-medium outline-none transition-all" oninput="renderList()">
+                </div>
+                
+                <p class="text-[10px] font-bold text-slate-400 uppercase px-3 pb-2 tracking-widest">Catégories</p>
+                <div id="category-menu" class="space-y-1">
+                    <!-- Généré dynamiquement en JS -->
+                </div>
+            </aside>
+
+            <!-- LISTE PRINCIPALE DES AMÉNAGEMENTS -->
+            <section class="flex-grow w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden print-full-width">
+                <!-- Header de tableau adaptatif -->
+                <div class="px-6 py-4 bg-slate-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 no-print">
+                    <h2 class="font-bold text-slate-950 text-base" id="current-category-title">Toutes les disciplines</h2>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="checkAllInCurrent(true)" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">Tout cocher</button>
+                        <button onclick="checkAllInCurrent(false)" class="text-xs font-semibold text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-all">Tout décocher</button>
+                    </div>
+                </div>
+
+                <!-- Conteneur d'impression spécifique qui montre le nom de la catégorie -->
+                <div class="hidden print:block p-6 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900" id="print-student-heading">Synthèse des Aménagements Validés</h2>
+                    <p class="text-xs text-slate-500">Document d'accompagnement officiel pour l'équipe pédagogique.</p>
+                </div>
+
+                <!-- LISTE DES ADAPTATIONS -->
+                <div id="items-list" class="divide-y divide-slate-100">
+                    <!-- Rempli en JS -->
+                </div>
+                
+                <div id="empty-state" class="hidden p-12 text-center text-slate-400">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 block text-slate-300"></i>
+                    <p class="text-sm font-medium">Aucun aménagement ne correspond aux filtres appliqués.</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- BLOC DE SIGNATURE -->
+        <div class="hidden print:grid grid-cols-3 gap-6 mt-12 pt-8 border-t-2 border-dashed border-slate-200 print-break-avoid">
+            <div class="text-center">
+                <p class="text-xs font-bold text-slate-600 mb-12">L'Enseignant Référent / Principal</p>
+                <div class="border-b border-slate-300 mx-auto w-3/4"></div>
+                <p class="text-[10px] text-slate-400 mt-1">Date et Signature</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs font-bold text-slate-600 mb-12">L'Équipe d'Accompagnement (AESH)</p>
+                <div class="border-b border-slate-300 mx-auto w-3/4"></div>
+                <p class="text-[10px] text-slate-400 mt-1">Date et Signature</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs font-bold text-slate-600 mb-12">Les Représentants Légaux</p>
+                <div class="border-b border-slate-300 mx-auto w-3/4"></div>
+                <p class="text-[10px] text-slate-400 mt-1">Date et Signature</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL : CONFIGURATION CLOUD ET NOTIFICATIONS -->
+    <div id="config-modal" class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm hidden items-center justify-center z-50 no-print">
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 max-w-2xl w-full mx-4 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-2.5 text-brand-600">
+                    <div class="bg-brand-50 p-2 rounded-xl">
+                        <i class="fa-solid fa-network-wired text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-lg">Configuration Réseau & Cloud</h3>
+                        <p class="text-slate-500 text-xs">Configurez l'outil pour travailler en équipe de manière synchronisée.</p>
+                    </div>
+                </div>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Section 1 : Notification Webhook -->
+                <div class="border-b border-slate-100 pb-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-1.5 flex items-center">
+                        <i class="fa-brands fa-discord text-indigo-500 mr-2"></i> 1. Notifications instantanées (Webhook)
+                    </h4>
+                    <p class="text-slate-500 text-xs mb-3">
+                        Collez l'URL de votre Webhook (Discord, Slack, Make, Zapier). À chaque modification effectuée par un collègue, vous recevrez une alerte en direct.
+                    </p>
+                    <input type="text" id="config-webhook" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl px-3 py-2.5 text-xs text-slate-700 outline-none">
+                </div>
+
+                <!-- Section 2 : Signature / Nom de l'utilisateur -->
+                <div class="border-b border-slate-100 pb-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-1.5 flex items-center">
+                        <i class="fa-solid fa-signature text-emerald-500 mr-2"></i> 2. Identité d'édition
+                    </h4>
+                    <p class="text-slate-500 text-xs mb-3">
+                        Votre nom, classe ou fonction sera inclus dans les notifications envoyées à vos collègues.
+                    </p>
+                    <input type="text" id="config-author" placeholder="Ex: M. Martin (Prof Principal), Mme. Dubreuil (AESH)..." class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl px-3 py-2.5 text-xs text-slate-700 outline-none">
+                </div>
+
+                <!-- Section 3 : Base de données autonome -->
+                <div>
+                    <h4 class="text-sm font-bold text-slate-800 mb-1.5 flex items-center">
+                        <i class="fa-solid fa-database text-brand-500 mr-2"></i> 3. Votre propre base Firebase (Recommandé)
+                    </h4>
+                    <p class="text-slate-500 text-xs mb-3">
+                        Saisissez les paramètres de votre base de données Cloud Firebase pour synchroniser toutes les fiches de manière sécurisée et privée sans passer par les configurations individuelles.
+                    </p>
+                    <textarea id="config-firebase" rows="4" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "mon-app" }' class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl p-3 text-xs font-mono text-slate-600 outline-none resize-none"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-1 italic">Astuce : Vous pouvez aussi configurer cela directement dans le code source de votre serveur GitHub pour qu'il s'initialise automatiquement pour tout le monde !</p>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t border-slate-100">
+                <button onclick="saveCloudConfig()" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all">
+                    Enregistrer les paramètres
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL : AJOUTER ÉLÈVE -->
+    <div id="add-student-modal" class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm hidden items-center justify-center z-50 no-print">
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 max-w-md w-full mx-4 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-slate-900 text-base flex items-center">
+                    <i class="fa-solid fa-user-plus text-brand-600 mr-2"></i> Créer un nouveau dossier élève
+                </h3>
+                <button onclick="closeCreateStudentModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Prénom & Nom</label>
+                    <input type="text" id="new-student-name" placeholder="Ex: Lucas DUMONT" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl px-3 py-2 text-sm outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Classe / Niveau actuel</label>
+                    <input type="text" id="new-student-class" placeholder="Ex: 5ème A" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl px-3 py-2 text-sm outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Année scolaire</label>
+                    <input type="text" id="new-student-year" value="2025-2026" class="w-full bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl px-3 py-2 text-sm outline-none">
+                </div>
+            </div>
+
+            <button onclick="submitCreateStudent()" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all">
+                Créer la fiche et démarrer
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE PARTAGE -->
+    <div id="share-modal" class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm hidden items-center justify-center z-50 no-print">
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 max-w-lg w-full mx-4 shadow-xl flex flex-col gap-4">
+            <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-2 text-brand-600">
+                    <i class="fa-solid fa-circle-nodes text-xl"></i>
+                    <h3 class="font-bold text-slate-900 text-lg">Partager la fiche</h3>
+                </div>
+                <button onclick="toggleShareModal(false)" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-600 space-y-2">
+                <p class="font-bold text-slate-800"><i class="fa-solid fa-circle-info text-brand-500 mr-1"></i> Partage d'accès instantané</p>
+                <p>Vos collègues peuvent se connecter directement sur ce site pour éditer les fiches. Si vous préférez envoyer un lien direct vers l'élève, copiez l'adresse ci-dessous :</p>
+                <p class="text-[10px] text-slate-400 italic">🔒 Conforme aux directives de protection des données : aucun fichier n'est exposé publiquement.</p>
+            </div>
+
+            <div class="flex gap-2">
+                <input type="text" id="share-url-input" readonly class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-600 font-mono outline-none select-all">
+                <button onclick="copyShareUrl()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all flex-shrink-0">
+                    <i id="copy-icon" class="fa-solid fa-copy"></i>
+                    <span id="copy-text">Copier</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 py-6 mt-12 border-t border-slate-800 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs space-y-2">
+            <p class="font-medium text-slate-300">PPS Adapt' — Créé pour simplifier l'inclusion scolaire et la collaboration de l'équipe éducative.</p>
+            <p>Conforme aux préconisations d'aménagements pédagogiques des Projets Personnalisés de Scolarisation.</p>
+        </div>
+    </footer>
+
+    <!-- SCRIPT CENTRAL DU CLOUD & DE L'APPLICATION -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, deleteDoc, onSnapshot, setDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        //  🚨 CONFIGURATION GITHUB / PROPRE CLOUD (VOTRE BASE FIREBASE PERSONNELLE)
+        // =========================================================================
+        // Vos identifiants Firebase configurés automatiquement pour votre école !
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDA5BV54ESfLQxvklsor5mz2WJQH56qLMM",
+            authDomain: "pps-adapt.firebaseapp.com",
+            projectId: "pps-adapt",
+            storageBucket: "pps-adapt.firebasestorage.app",
+            messagingSenderId: "435392408296",
+            appId: "1:435392408296:web:20246e84e3b98cf751775d",
+            measurementId: "G-ZHE6DTPN0J"
+        }; 
+        const MY_APP_ID = "pps-adapt-default"; 
+        // =========================================================================
+
+        // Données d'aménagements officiels fournies
+        const baseData = [
+            // Pour toutes les disciplines (26 items)
+            { id: 1, cat: "Pour toutes les disciplines", item: "Veiller à la bonne installation de l'élève dans la classe en fonction des temps d’activités", icon: "fa-chair" },
+            { id: 2, cat: "Pour toutes les disciplines", item: "Attribuer une place, si besoin isolée, à proximité des ressources utiles (prise de courant,…)", icon: "fa-plug" },
+            { id: 3, cat: "Pour toutes les disciplines", item: "S’adresser individuellement à l’élève", icon: "fa-comments" },
+            { id: 4, cat: "Pour toutes les disciplines", item: "Etre attentif aux afférences sonores (sensibilité aux bruits)", icon: "fa-volume-xmark" },
+            { id: 5, cat: "Pour toutes les disciplines", item: "Privilégier le canal verbal ou visuel", icon: "fa-eye" },
+            { id: 6, cat: "Pour toutes les disciplines", item: "Permettre à l’élève de choisir ses outils (cahier, classeur, trieur, pochette à rabats, petits carreaux…)", icon: "fa-folder-open" },
+            { id: 7, cat: "Pour toutes les disciplines", item: "Adapter la mise en page des documents (pas de « décrochage » des paragraphes, pas de multi colonnes ni de recto-verso…) et la présentation des textes", icon: "fa-file-lines" },
+            { id: 8, cat: "Pour toutes les disciplines", item: "Ne pas donner de textes manuscrits", icon: "fa-keyboard" },
+            { id: 9, cat: "Pour toutes les disciplines", item: "Simplifier le contenu du texte", icon: "fa-spell-check" },
+            { id: 10, cat: "Pour toutes les disciplines", item: "Présenter les cours sous forme de schéma", icon: "fa-diagram-project" },
+            { id: 11, cat: "Pour toutes les disciplines", item: "Accepter les modes d’expression spécifiques de l’élève (mots, gestes,…) et accepter un temps de latence", icon: "fa-clock-rotate-left" },
+            { id: 12, cat: "Pour toutes les disciplines", item: "Accepter que l’élève reste en retrait, observe, agisse par imitation", icon: "fa-user-ninja" },
+            { id: 13, cat: "Pour toutes les disciplines", item: "Maintenir l’attention de l’élève par des sollicitations régulières,", icon: "fa-bullhorn" },
+            { id: 14, cat: "Pour toutes les disciplines", item: "Valoriser les réussites, même partielles", icon: "fa-star" },
+            { id: 15, cat: "Pour toutes les disciplines", item: "Expliciter les informations et les consignes complexes, les décomposer, proposer plusieurs approches…", icon: "fa-puzzle-piece" },
+            { id: 16, cat: "Pour toutes les disciplines", item: "Mettre en évidence les différentes procédures pour réussir la tâche demandée (savoirs à mobiliser, démarche à effectuer, matériel à utiliser …)", icon: "fa-toolbox" },
+            { id: 17, cat: "Pour toutes les disciplines", item: "Accepter de différer, segmenter, limiter le travail pour prendre en compte les contraintes et la fatigabilité (lenteur, surcharge, attention, concentration…)", icon: "fa-battery-quarter" },
+            { id: 18, cat: "Pour toutes les disciplines", item: "Eviter les doubles tâches (copie pendant une explication, consigne pendant la lecture du sujet…)", icon: "fa-triangle-exclamation" },
+            { id: 19, cat: "Pour toutes les disciplines", item: "Donner la copie d’un cours avant ou après pour anticiper le cours, se concentrer davantage sur la compréhension du discours", icon: "fa-copy" },
+            { id: 20, cat: "Pour toutes les disciplines", item: "Limiter l’écrit, la copie (synthèse du cours, photocopier le texte…)", icon: "fa-pen-fancy" },
+            { id: 21, cat: "Pour toutes les disciplines", item: "Avant même de lire un texte, laisser lire les questions qui seront posées afin de faciliter la prise d’indices", icon: "fa-circle-question" },
+            { id: 22, cat: "Pour toutes les disciplines", item: "Proposer à l’élève une lecture orale ou une écoute audio des textes supports de la séance", icon: "fa-headphones" },
+            { id: 23, cat: "Pour toutes les disciplines", item: "Accepter les outils d'aide (cache, règle, fiches mémoires, cartes heuristiques …)", icon: "fa-map-location-dot" },
+            { id: 24, cat: "Pour toutes les disciplines", item: "Autoriser les abréviations", icon: "fa-scissors" },
+            { id: 25, cat: "Pour toutes les disciplines", item: "Accepter l’utilisation du surligneur, crayon à papier…", icon: "fa-highlighter" },
+            { id: 26, cat: "Pour toutes les disciplines", item: "Autoriser l’utilisation d’une calculatrice simple (permettant les quatre opérations) dans toutes les disciplines", icon: "fa-calculator" },
+
+            // Évaluations (9 items)
+            { id: 27, cat: "Évaluations", item: "Mettre en place un temps majoré", icon: "fa-clock" },
+            { id: 28, cat: "Évaluations", item: "Adapter des modalités d’évaluations à l’élève (écrites ou orales)", icon: "fa-shuffle" },
+            { id: 29, cat: "Évaluations", item: "Donner les consignes à l’oral", icon: "fa-ear-listen" },
+            { id: 30, cat: "Évaluations", item: "Différencier les supports de l’évaluation de façon à limiter l'écrit (QCM, schémas à légender, exercices à trous, à cocher, à relier…)", icon: "fa-square-check" },
+            { id: 31, cat: "Évaluations", item: "Diminuer le nombre d’exercices ou de questions", icon: "fa-compress" },
+            { id: 32, cat: "Évaluations", item: "Autoriser le recours aux différents outils utilisés habituellement", icon: "fa-box-open" },
+            { id: 33, cat: "Évaluations", item: "Ne pas pénaliser l’orthographe et le soin dans les travaux écrits.", icon: "fa-heart" },
+            { id: 34, cat: "Évaluations", item: "Ne pas pénaliser le manque de participation à l’oral (ou les difficultés)", icon: "fa-face-smile" },
+            { id: 35, cat: "Évaluations", item: "Evaluer les progrès pour encourager les réussites", icon: "fa-chart-line" },
+
+            // Devoirs (4 items)
+            { id: 36, cat: "Devoirs", item: "Veiller à ce que les devoirs soient notés de manière lisible", icon: "fa-calendar-days" },
+            { id: 37, cat: "Devoirs", item: "Limiter le « par cœur », demander à ce que seules les notions clés soient retenues", icon: "fa-brain" },
+            { id: 38, cat: "Devoirs", item: "Donner moins d'exercices à faire", icon: "fa-minus" },
+            { id: 39, cat: "Devoirs", item: "Aider à la mise en place de méthodes de travail (systèmes d’organisation répétitifs, accompagnement personnalisé)", icon: "fa-sitemap" },
+
+            // Français – Littérature - Philosophie (7 items)
+            { id: 40, cat: "Français & Philosophie", item: "Proposer des dictées aménagées (à trous, avec un choix parmi plusieurs propositions …)", icon: "fa-pencil" },
+            { id: 41, cat: "Français & Philosophie", item: "Faciliter l’apprentissage des règles en proposant à l’élève des moyens mnémotechniques", icon: "fa-lightbulb" },
+            { id: 42, cat: "Français & Philosophie", item: "Favoriser, dans le choix des ouvrages, les livres ayant une version audio", icon: "fa-file-audio" },
+            { id: 43, cat: "Français & Philosophie", item: "Proposer un schéma chronologique de l’œuvre étudiée", icon: "fa-timeline" },
+            { id: 44, cat: "Français & Philosophie", item: "Faciliter la production d’écrit (autoriser un répertoire personnel, lui apprendre à utiliser les indicateurs de temps pour structurer le récit)", icon: "fa-book-open" },
+            { id: 45, cat: "Français & Philosophie", item: "Grouper les mots par similitude orthographique/phonologique, faire des listes, utiliser les couleurs pour segmenter les mots, les phrases", icon: "fa-palette" },
+            { id: 46, cat: "Français & Philosophie", item: "S’assurer de la compréhension des concepts", icon: "fa-clipboard-question" },
+
+            // Mathématiques/sciences (16 items)
+            { id: 47, cat: "Maths & Sciences", item: "Proposer à l’élève ou lui permettre d’utiliser des fiches outils (tables, définitions, théorèmes...)", icon: "fa-sheet-plastic" },
+            { id: 48, cat: "Maths & Sciences", item: "Adapter la présentation des tableaux à double entrée", icon: "fa-table-cells" },
+            { id: 49, cat: "Maths & Sciences", item: "Proposer des tableaux vierges plutôt qu’en demander le tracé", icon: "fa-border-none" },
+            { id: 50, cat: "Maths & Sciences", item: "Définir systématiquement le vocabulaire spatial utilisé", icon: "fa-compass-drafting" },
+            { id: 51, cat: "Maths & Sciences", item: "Utiliser la manipulation et la visualisation (objets, pliages, examples concrets, …)", icon: "fa-cubes" },
+            { id: 52, cat: "Maths & Sciences", item: "Même lorsque c’est interdit, autoriser l’utilisation d’une calculatrice simple (permettant les quatre opérations)", icon: "fa-calculator" },
+            { id: 53, cat: "Maths & Sciences", item: "Autoriser l’utilisation des repères de couleur lors des calculs en colonnes", icon: "fa-palette" },
+            { id: 54, cat: "Maths & Sciences", item: "Autoriser la présentation des calculs en ligne", icon: "fa-grip-lines" },
+            { id: 55, cat: "Maths & Sciences", item: "S’appuyer sur un travail en binôme lors des activités nécessitant une motricité fine", icon: "fa-user-group" },
+            { id: 56, cat: "Maths & Sciences", item: "Décomposer les exercices (problème, figure de géométrie…) et les étapes de leur résolution", icon: "fa-indent" },
+            { id: 57, cat: "Maths & Sciences", item: "Accepter que la réponse ne soit pas rédigée si les calculs sont justes", icon: "fa-check" },
+            { id: 58, cat: "Maths & Sciences", item: "Ne pas sanctionner l’imprécision des tracés en géométrie", icon: "fa-signature" },
+            { id: 59, cat: "Maths & Sciences", item: "Décomposer les étapes d’une réalisation", icon: "fa-list-ol" },
+            { id: 60, cat: "Maths & Sciences", item: "Privilégier la formulation des propriétés des figures plutôt que le tracé", icon: "fa-quote-left" },
+            { id: 61, cat: "Maths & Sciences", item: "Encourager l’élève à verbaliser sa démarche pour l’aider à construire son raisonnement", icon: "fa-microphone" },
+            { id: 62, cat: "Maths & Sciences", item: "Adapter les manipulations lors des travaux pratiques", icon: "fa-flask" },
+
+            // Langues vivantes (6 items)
+            { id: 63, cat: "Langues vivantes", item: "Adapter les modalités de communication (écrit ou oral)", icon: "fa-language" },
+            { id: 64, cat: "Langues vivantes", item: "Proposer à l’élève des supports visuels pour faciliter la compréhension", icon: "fa-image" },
+            { id: 65, cat: "Langues vivantes", item: "Insister sur la prononciation et la distinction des nouveaux sons de la langue", icon: "fa-ear-deaf" },
+            { id: 66, cat: "Langues vivantes", item: "Grouper les mots par similitude orthographique/phonologique, faire des listes", icon: "fa-list-check" },
+            { id: 67, cat: "Langues vivantes", item: "Utiliser des couleurs pour segmenter les mots, les phrases", icon: "fa-paintbrush" },
+            { id: 68, cat: "Langues vivantes", item: "Permettre l’enregistrement pour une meilleure assimilation de la prononciation", icon: "fa-microphone-lines" },
+
+            // Histoire / géographie – ECJS - SES (6 items)
+            { id: 69, cat: "Histoire-Géo & SES", item: "Utiliser les représentations visuelles (frises chronologiques, cartes…)", icon: "fa-map" },
+            { id: 70, cat: "Histoire-Géo & SES", item: "Agrandir les cartes, utiliser des couleurs", icon: "fa-magnifying-glass-plus" },
+            { id: 71, cat: "Histoire-Géo & SES", item: "Multiplier les formes de représentation", icon: "fa-network-wired" },
+            { id: 72, cat: "Histoire-Géo & SES", item: "Ne pas sanctionner le soin dans les travaux de cartographie", icon: "fa-thumbs-up" },
+            { id: 73, cat: "Histoire-Géo & SES", item: "Adapter la présentation des tableaux à double entrée", icon: "fa-table" },
+            { id: 74, cat: "Histoire-Géo & SES", item: "Remplacer les exercices de cartographie par des tâches adaptées (description écrite, orale…)", icon: "fa-font" },
+
+            // Education artistique (4 items)
+            { id: 75, cat: "Éducation Artistique", item: "Privilégier les incitations orales, visuelles, sonores ou théâtrales", icon: "fa-masks-theater" },
+            { id: 76, cat: "Éducation Artistique", item: "Accepter l’utilisation des outils informatiques", icon: "fa-laptop" },
+            { id: 77, cat: "Éducation Artistique", item: "Valoriser la créativité, l’intention artistique plutôt que la réalisation effective", icon: "fa-wand-magic-sparkles" },
+            { id: 78, cat: "Éducation Artistique", item: "Adapter le choix de l’instrument ou de l’outil", icon: "fa-guitar" },
+
+            // Éducation physique et sportive (5 items)
+            { id: 79, cat: "EPS", item: "Adapter les activités (individuelles/collectives), leurs caractéristiques, leurs rythmes, les performances attendues", icon: "fa-running" },
+            { id: 80, cat: "EPS", item: "Autoriser des règles différenciées pour certaines activités (dribble à deux mains, reprise de dribble, rebond au volley…)", icon: "fa-basketball" },
+            { id: 81, cat: "EPS", item: "Différencier nettement partenaires et adversaires dans les sports collectifs", icon: "fa-people-group" },
+            { id: 82, cat: "EPS", item: "Doter d’un signe distinctif suffisamment net les joueurs tenant certains rôles dans les jeux collectifs", icon: "fa-shirt" },
+            { id: 83, cat: "EPS", item: "Verbaliser ou faire verbaliser les éléments d’une tâche complexe à accomplir (enchaînement de mouvements), éviter au maximum les activités qui impliquent une double tâche et mobilisent l’attention de l’élève sur deux objets", icon: "fa-brain" }
+        ];
+
+        // Configuration de l'État de l'application
+        let appState = {
+            currentSheetId: null,
+            students: {}, 
+            cloudConfig: {
+                webhookUrl: "",
+                author: "Un enseignant",
+                customFirebase: ""
+            }
+        };
+
+        let currentCategory = "Toutes les disciplines";
+        let isFirebaseActive = false;
+        let firebaseAppInstance = null;
+        let dbInstance = null;
+        let authInstance = null;
+        let activeSnapshotListener = null;
+
+        // Variables d'environnement par défaut
+        const appId = MY_APP_ID || (typeof __app_id !== 'undefined' ? __app_id : 'pps-adapt-default');
+        const environmentFirebaseConfig = MY_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+
+        // Démarrage de l'Application au chargement
+        window.addEventListener('load', async () => {
+            loadLocalConfigs();
+            setupInteractions();
+            
+            // Initialisation de Firebase
+            await initFirebase();
+
+            // Gestion de l'ouverture directe d'une fiche via le hash URL (#sheet=...)
+            const hash = window.location.hash.substring(1);
+            if (hash && hash.startsWith("sheet=")) {
+                const urlSheetId = hash.replace("sheet=", "");
+                await loadSheetAndSwitch(urlSheetId);
+            } else {
+                showDashboardView();
+            }
+        });
+
+        // Chargement des configurations locales
+        function loadLocalConfigs() {
+            const storedState = localStorage.getItem('pps_adapt_local_v5');
+            if (storedState) {
+                try {
+                    const parsed = JSON.parse(storedState);
+                    appState.students = parsed.students || {};
+                    appState.cloudConfig = parsed.cloudConfig || appState.cloudConfig;
+                } catch(e) {
+                    console.error("Erreur de décodage local, réinitialisation", e);
+                }
+            }
+        }
+
+        // Sauvegarde locale de secours
+        function saveLocalState() {
+            localStorage.setItem('pps_adapt_local_v5', JSON.stringify({
+                students: appState.students,
+                cloudConfig: appState.cloudConfig
+            }));
+        }
+
+        // Initialisation de Firebase
+        async function initFirebase() {
+            let configToUse = environmentFirebaseConfig;
+            
+            if (appState.cloudConfig.customFirebase) {
+                try {
+                    configToUse = JSON.parse(appState.cloudConfig.customFirebase);
+                } catch (e) {
+                    showToast("Configuration Firebase personnalisée invalide.", "error");
+                }
+            }
+
+            if (!configToUse) {
+                updateSyncBadge("local");
+                return;
+            }
+
+            try {
+                firebaseAppInstance = initializeApp(configToUse);
+                dbInstance = getFirestore(firebaseAppInstance);
+                authInstance = getAuth(firebaseAppInstance);
+
+                const customToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (customToken) {
+                    await signInWithCustomToken(authInstance, customToken);
+                } else {
+                    await signInAnonymously(authInstance);
+                }
+
+                isFirebaseActive = true;
+                updateSyncBadge("online");
+                
+                // Écoute de l'ensemble de la base
+                listenToAllSheets();
+            } catch(e) {
+                console.error("Erreur d'initialisation Firebase", e);
+                updateSyncBadge("local");
+            }
+        }
+
+        // Écouter toutes les fiches en temps réel
+        function listenToAllSheets() {
+            if (!isFirebaseActive) return;
+
+            const collectionPath = collection(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets');
+            onSnapshot(collectionPath, (snapshot) => {
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    appState.students[doc.id] = data;
+                });
+                saveLocalState();
+                if (!appState.currentSheetId) {
+                    renderDashboard();
+                }
+            }, (error) => {
+                console.error("Erreur d'écoute de la base", error);
+            });
+        }
+
+        // Gérer le badge d'état Cloud
+        function updateSyncBadge(status) {
+            const badge = document.getElementById("sync-badge");
+            const dot = document.getElementById("sync-dot");
+            const text = document.getElementById("sync-text");
+
+            badge.classList.remove("hidden");
+            if (status === "online") {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-success-500 block pulse-active";
+                text.innerText = "Cloud Connecté";
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 block";
+                text.innerText = "Mode Local";
+            }
+        }
+
+        // Envoi d'une notification via Webhook (Discord/Slack/Zapier/Make)
+        async function triggerNotification(studentName, actionType, countActive) {
+            const webhookUrl = appState.cloudConfig.webhookUrl;
+            if (!webhookUrl) return;
+
+            const author = appState.cloudConfig.author || "Un enseignant";
+            
+            const payload = {
+                username: "PPS Adapt' Cloud",
+                avatar_url: "https://placehold.co/120x120/3b82f6/ffffff?text=PPS",
+                content: `📝 **PPS de ${studentName}** : Nouvelle mise à jour en direct !`,
+                embeds: [{
+                    title: `Modification du profil : ${studentName}`,
+                    description: `Action : **${actionType}**`,
+                    color: 2426860, // Bleu dynamique
+                    fields: [
+                        { name: "Auteur du changement", value: author, inline: true },
+                        { name: "Aménagements actifs", value: `${countActive} retenus`, inline: true }
+                    ],
+                    footer: { text: "PPS Adapt' — Hébergé avec succès" },
+                    timestamp: new Date().toISOString()
+                }]
+            };
+
+            try {
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch(e) {
+                console.error("Échec de l'envoi du Webhook", e);
+            }
+        }
+
+        // RENDU : LE TABLEAU DE BORD (DASHBOARD)
+        window.renderDashboard = function() {
+            const grid = document.getElementById("students-grid");
+            const emptyState = document.getElementById("dashboard-empty");
+            const searchVal = document.getElementById("dashboard-search").value.toLowerCase();
+            
+            grid.innerHTML = "";
+            const keys = Object.keys(appState.students);
+            
+            // Filtrage des dossiers
+            const filteredKeys = keys.filter(id => {
+                const s = appState.students[id].student;
+                if (!s) return false;
+                return (s.name || "").toLowerCase().includes(searchVal) || 
+                       (s.class || "").toLowerCase().includes(searchVal);
+            });
+
+            document.getElementById("dashboard-count").innerText = `${filteredKeys.length} élève(s) enregistré(s)`;
+
+            if (filteredKeys.length === 0) {
+                emptyState.classList.remove("hidden");
+                return;
+            }
+            emptyState.classList.add("hidden");
+
+            filteredKeys.forEach(id => {
+                const stData = appState.students[id];
+                const s = stData.student;
+                const checked = stData.checked || {};
+                const activeCount = Object.values(checked).filter(Boolean).length;
+                const totalCount = baseData.length;
+                const percent = Math.round((activeCount / totalCount) * 100);
+
+                const card = document.createElement("div");
+                card.className = "bg-white border border-slate-200 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between group";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">${s.year || '2025-2026'}</span>
+                            <span class="text-xs font-bold text-success-600 bg-success-50 px-2 py-0.5 rounded-full">${percent}% actif</span>
+                        </div>
+                        <h4 class="text-base font-extrabold text-slate-900 group-hover:text-brand-600 transition-all">${s.name || 'Élève anonyme'}</h4>
+                        <p class="text-xs text-slate-500 font-semibold flex items-center mt-1">
+                            <i class="fa-solid fa-graduation-cap mr-1.5 text-slate-400"></i> Classe : ${s.class || 'Non spécifiée'}
+                        </p>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs text-slate-400 font-medium">${activeCount} aménagement(s)</span>
+                        <div class="flex space-x-1.5">
+                            <button onclick="deleteStudentSheet('${id}', event)" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-all" title="Supprimer la fiche">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                            <button onclick="loadSheetAndSwitch('${id}')" class="inline-flex items-center space-x-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all">
+                                <span>Ouvrir</span>
+                                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        };
+
+        // RENDU : LA GRILLE D'ÉDITION DES AMÉNAGEMENTS
+        window.renderList = function() {
+            const container = document.getElementById('items-list');
+            const searchVal = document.getElementById('search-bar').value.toLowerCase();
+            const filterActiveOnly = document.getElementById('filter-active-only').checked;
+            
+            container.innerHTML = "";
+
+            const activeSheetId = appState.currentSheetId;
+            if (!activeSheetId || !appState.students[activeSheetId]) return;
+
+            const sheetData = appState.students[activeSheetId];
+            const checkedState = sheetData.checked || {};
+            const commentsState = sheetData.comments || {};
+
+            const filteredData = baseData.filter(item => {
+                const matchesCategory = (currentCategory === "Toutes les disciplines" || item.cat === currentCategory);
+                const matchesSearch = item.item.toLowerCase().includes(searchVal) || item.cat.toLowerCase().includes(searchVal);
+                const matchesActiveOnly = !filterActiveOnly || checkedState[item.id];
+                return matchesCategory && matchesSearch && matchesActiveOnly;
+            });
+
+            if (filteredData.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+            }
+
+            filteredData.forEach(item => {
+                const isChecked = !!checkedState[item.id];
+                const comment = commentsState[item.id] || "";
+
+                const row = document.createElement('div');
+                row.className = `p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center gap-4 row-transition print-break-avoid ${isChecked ? 'bg-success-50/50 print-checkbox-active' : 'hover:bg-slate-50/40'}`;
+                
+                row.innerHTML = `
+                    <div class="flex items-start sm:items-center gap-3 flex-grow min-w-0">
+                        <label class="relative flex items-center justify-center cursor-pointer no-print flex-shrink-0">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleItemCloud(${item.id}, this.checked)" class="sr-only peer">
+                            <div class="w-6 h-6 border-2 border-slate-300 rounded-lg peer-checked:bg-success-500 peer-checked:border-success-500 transition-all flex items-center justify-center text-white">
+                                <i class="fa-solid fa-check text-xs scale-0 peer-checked:scale-100 transition-all"></i>
+                            </div>
+                        </label>
+                        
+                        <span class="hidden print:inline-block mr-2 text-success-600 font-bold flex-shrink-0">
+                            ${isChecked ? '[X]' : '[  ]'}
+                        </span>
+
+                        <div class="flex items-center space-x-3 min-w-0">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 no-print">
+                                <i class="fa-solid ${item.icon} text-sm"></i>
+                            </div>
+                            <div class="min-w-0">
+                                ${currentCategory === "Toutes les disciplines" ? `<span class="inline-block text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-wider mb-1 no-print">${item.cat}</span>` : ''}
+                                <p class="text-sm font-semibold text-slate-800 leading-snug whitespace-normal break-words">${item.item}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full sm:w-80 flex-shrink-0">
+                        <input type="text" placeholder="Observations et précisions..." value="${comment}" onchange="updateCommentCloud(${item.id}, this.value)" 
+                               class="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 outline-none transition-all print:bg-transparent print:border-none print:p-0 print:italic">
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        };
+
+        // Rendu du menu des catégories dans la barre latérale
+        function renderCategoryMenu(categories) {
+            const menu = document.getElementById('category-menu');
+            menu.innerHTML = "";
+            const activeSheetId = appState.currentSheetId;
+            const checkedState = activeSheetId ? (appState.students[activeSheetId]?.checked || {}) : {};
+
+            categories.forEach(c => {
+                const isActive = (c === "Tout afficher" && currentCategory === "Toutes les disciplines") || c === currentCategory;
+                const button = document.createElement('button');
+                button.className = `w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between group ${isActive ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/10' : 'text-slate-600 hover:bg-slate-100'}`;
+                button.onclick = () => {
+                    currentCategory = c === "Tout afficher" ? "Toutes les disciplines" : c;
+                    document.getElementById('current-category-title').innerText = currentCategory;
+                    renderCategoryMenu(categories);
+                    renderList();
+                };
+
+                const countOfCat = baseData.filter(i => (c === "Tout afficher" || i.cat === c) && checkedState[i.id]).length;
+
+                button.innerHTML = `
+                    <span>${c}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}">${countOfCat > 0 ? countOfCat : ''}</span>
+                `;
+                menu.appendChild(button);
+            });
+        }
+
+        // Configuration initiale des catégories
+        function setupInteractions() {
+            const cats = ["Tout afficher", ...new Set(baseData.map(item => item.cat))];
+            renderCategoryMenu(cats);
+        }
+
+        // Retourner à la vue Accueil / Tableau de bord
+        window.showDashboardView = function() {
+            appState.currentSheetId = null;
+            document.getElementById("editor-view").classList.add("hidden");
+            document.getElementById("dashboard-view").classList.remove("hidden");
+            document.getElementById("btn-dashboard").classList.add("hidden");
+            window.location.hash = "";
+            
+            if (activeSnapshotListener) {
+                activeSnapshotListener();
+                activeSnapshotListener = null;
+            }
+
+            renderDashboard();
+        };
+
+        // Charger et basculer sur l'éditeur d'un élève
+        window.loadSheetAndSwitch = async function(sheetId) {
+            appState.currentSheetId = sheetId;
+
+            if (!appState.students[sheetId]) {
+                appState.students[sheetId] = {
+                    student: { name: "Nouvel Élève", class: "", year: "2025-2026" },
+                    checked: {},
+                    comments: {}
+                };
+            }
+
+            window.location.hash = `sheet=${sheetId}`;
+
+            // Établissement de la connexion Firestore pour cette fiche spécifique
+            if (isFirebaseActive && dbInstance) {
+                if (activeSnapshotListener) activeSnapshotListener();
+                const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', sheetId);
+                
+                activeSnapshotListener = onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        appState.students[sheetId] = docSnap.data();
+                        updateEditorFormUI();
+                    }
+                });
+            }
+
+            updateEditorFormUI();
+
+            document.getElementById("dashboard-view").classList.add("hidden");
+            document.getElementById("editor-view").classList.remove("hidden");
+            document.getElementById("btn-dashboard").classList.remove("hidden");
+        };
+
+        // Met à jour les valeurs dans les formulaires de l'éditeur
+        function updateEditorFormUI() {
+            const sheetId = appState.currentSheetId;
+            const data = appState.students[sheetId];
+
+            document.getElementById("student-name").value = data.student.name || "";
+            document.getElementById("student-class").value = data.student.class || "";
+            document.getElementById("school-year").value = data.student.year || "2025-2026";
+            
+            document.getElementById("print-student-heading").innerText = `Aménagements Validés pour ${data.student.name || 'Élève'} (${data.student.class || ''})`;
+
+            const cats = ["Tout afficher", ...new Set(baseData.map(item => item.cat))];
+            renderCategoryMenu(cats);
+            renderList();
+            updateStatsUI();
+        }
+
+        // Calcul et mise à jour de la progression
+        function updateStatsUI() {
+            const sheetId = appState.currentSheetId;
+            const data = appState.students[sheetId];
+            if (!data) return;
+
+            const total = baseData.length;
+            const checkedCount = baseData.filter(i => data.checked && data.checked[i.id]).length;
+            const percent = Math.round((checkedCount / total) * 100);
+
+            document.getElementById('stats-count').innerHTML = `${checkedCount} <span class="text-sm font-normal text-slate-400">/ ${total}</span>`;
+            document.getElementById('stats-percent').innerText = `${percent}%`;
+            document.getElementById('stats-bar').style.width = `${percent}%`;
+        }
+
+        // Supprimer une fiche élève
+        window.deleteStudentSheet = async function(id, event) {
+            if (event) event.stopPropagation();
+            
+            const name = appState.students[id]?.student?.name || "cet élève";
+            if (!window.confirm(`Confirmez-vous la suppression définitive du dossier de ${name} ?`)) {
+                return;
+            }
+
+            delete appState.students[id];
+            saveLocalState();
+
+            if (isFirebaseActive && dbInstance) {
+                try {
+                    const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', id);
+                    await deleteDoc(docRef);
+                    showToast("Fiche retirée de la base partagée", "success");
+                } catch(e) {
+                    showToast("Erreur lors de la suppression Cloud, suppression locale uniquement.", "error");
+                }
+            } else {
+                showToast("Fiche élève supprimée localement", "success");
+            }
+
+            renderDashboard();
+        };
+
+        // Ouvrir la boîte d'ajout d'élève
+        window.openCreateStudentModal = function() {
+            document.getElementById("new-student-name").value = "";
+            document.getElementById("new-student-class").value = "";
+            document.getElementById("add-student-modal").classList.remove("hidden");
+            document.getElementById("add-student-modal").classList.add("flex");
+        };
+
+        window.closeCreateStudentModal = function() {
+            document.getElementById("add-student-modal").classList.add("hidden");
+            document.getElementById("add-student-modal").classList.remove("flex");
+        };
+
+        // Soumettre le profil élève
+        window.submitCreateStudent = async function() {
+            const name = document.getElementById("new-student-name").value.trim();
+            const className = document.getElementById("new-student-class").value.trim();
+            const year = document.getElementById("new-student-year").value.trim();
+
+            if (!name) {
+                showToast("Veuillez renseigner au moins un prénom et un nom.", "error");
+                return;
+            }
+
+            const newSheetId = "pps_" + Date.now();
+            appState.students[newSheetId] = {
+                student: { name: name, class: className, year: year },
+                checked: {},
+                comments: {}
+            };
+
+            saveLocalState();
+
+            if (isFirebaseActive && dbInstance) {
+                try {
+                    const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', newSheetId);
+                    await setDoc(docRef, appState.students[newSheetId]);
+                    await triggerNotification(name, "Création d'une nouvelle fiche élève", 0);
+                    showToast("Dossier élève partagé avec succès !", "success");
+                } catch(e) {
+                    showToast("Dossier sauvegardé localement.", "info");
+                }
+            } else {
+                showToast("Élève ajouté localement.", "success");
+            }
+
+            closeCreateStudentModal();
+            loadSheetAndSwitch(newSheetId);
+        };
+
+        // Basculer l'activation d'un aménagement
+        window.toggleItemCloud = async function(id, isChecked) {
+            const sheetId = appState.currentSheetId;
+            if (!sheetId) return;
+
+            appState.students[sheetId].checked = appState.students[sheetId].checked || {};
+            appState.students[sheetId].checked[id] = isChecked;
+
+            saveLocalState();
+            updateStatsUI();
+
+            if (isFirebaseActive && dbInstance) {
+                try {
+                    const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', sheetId);
+                    await setDoc(docRef, appState.students[sheetId]);
+                    
+                    const countActive = Object.values(appState.students[sheetId].checked).filter(Boolean).length;
+                    const actionName = isChecked ? `Ajout : "${baseData.find(b => b.id === id).item}"` : `Retrait : "${baseData.find(b => b.id === id).item}"`;
+                    triggerNotification(appState.students[sheetId].student.name, actionName, countActive);
+                } catch(e) {
+                    console.error("Échec de synchronisation", e);
+                }
+            }
+
+            const cats = ["Tout afficher", ...new Set(baseData.map(item => item.cat))];
+            renderCategoryMenu(cats);
+        };
+
+        // Sauvegarder un commentaire
+        window.updateCommentCloud = async function(id, text) {
+            const sheetId = appState.currentSheetId;
+            if (!sheetId) return;
+
+            appState.students[sheetId].comments = appState.students[sheetId].comments || {};
+            appState.students[sheetId].comments[id] = text;
+
+            saveLocalState();
+
+            if (isFirebaseActive && dbInstance) {
+                try {
+                    const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', sheetId);
+                    await setDoc(docRef, appState.students[sheetId]);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+        };
+
+        // Sauvegarde intelligente (Debounce) des données texte de l'élève
+        let changeDebounceTimer;
+        window.handleStudentFieldChange = function() {
+            const sheetId = appState.currentSheetId;
+            if (!sheetId) return;
+
+            clearTimeout(changeDebounceTimer);
+            changeDebounceTimer = setTimeout(async () => {
+                appState.students[sheetId].student.name = document.getElementById("student-name").value;
+                appState.students[sheetId].student.class = document.getElementById("student-class").value;
+                appState.students[sheetId].student.year = document.getElementById("school-year").value;
+
+                saveLocalState();
+
+                if (isFirebaseActive && dbInstance) {
+                    try {
+                        const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', sheetId);
+                        await setDoc(docRef, appState.students[sheetId]);
+                    } catch(e) {
+                        console.error(e);
+                    }
+                }
+            }, 1000); 
+        };
+
+        // Actions globales (Tout cocher/décocher dans une catégorie)
+        window.checkAllInCurrent = async function(action) {
+            const sheetId = appState.currentSheetId;
+            if (!sheetId) return;
+
+            baseData.forEach(item => {
+                if (currentCategory === "Toutes les disciplines" || item.cat === currentCategory) {
+                    appState.students[sheetId].checked = appState.students[sheetId].checked || {};
+                    appState.students[sheetId].checked[item.id] = action;
+                }
+            });
+
+            saveLocalState();
+            updateStatsUI();
+            renderList();
+
+            if (isFirebaseActive && dbInstance) {
+                try {
+                    const docRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'pps_sheets', sheetId);
+                    await setDoc(docRef, appState.students[sheetId]);
+                    
+                    const countActive = Object.values(appState.students[sheetId].checked).filter(Boolean).length;
+                    triggerNotification(appState.students[sheetId].student.name, `${action ? 'Cochage' : 'Décochage'} général (${currentCategory})`, countActive);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+
+            const cats = ["Tout afficher", ...new Set(baseData.map(item => item.cat))];
+            renderCategoryMenu(cats);
+        };
+
+        // Contrôles de modal pour la configuration
+        window.openConfigModal = function() {
+            document.getElementById("config-webhook").value = appState.cloudConfig.webhookUrl || "";
+            document.getElementById("config-author").value = appState.cloudConfig.author || "";
+            document.getElementById("config-firebase").value = appState.cloudConfig.customFirebase || "";
+            
+            document.getElementById("config-modal").classList.remove("hidden");
+            document.getElementById("config-modal").classList.add("flex");
+        };
+
+        window.closeConfigModal = function() {
+            document.getElementById("config-modal").classList.add("hidden");
+            document.getElementById("config-modal").classList.remove("flex");
+        };
+
+        // Sauvegarde de l'ensemble de la configuration
+        window.saveCloudConfig = async function() {
+            appState.cloudConfig.webhookUrl = document.getElementById("config-webhook").value.trim();
+            appState.cloudConfig.author = document.getElementById("config-author").value.trim() || "Un enseignant";
+            appState.cloudConfig.customFirebase = document.getElementById("config-firebase").value.trim();
+
+            saveLocalState();
+            closeConfigModal();
+            showToast("Redémarrage de la connexion réseau...", "success");
+            
+            await initFirebase();
+        };
+
+        // Générer et afficher le lien de partage
+        window.generateShareLink = function() {
+            const sheetId = appState.currentSheetId;
+            if (!sheetId) return;
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}#sheet=${sheetId}`;
+            document.getElementById('share-url-input').value = shareUrl;
+            toggleShareModal(true);
+        };
+
+        window.toggleShareModal = function(show) {
+            const modal = document.getElementById('share-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+                document.getElementById('copy-text').innerText = "Copier";
+                document.getElementById('copy-icon').className = "fa-solid fa-copy";
+            }
+        };
+
+        // Copier le lien
+        window.copyShareUrl = function() {
+            const copyText = document.getElementById("share-url-input");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+
+            document.getElementById('copy-text').innerText = "Copié !";
+            document.getElementById('copy-icon').className = "fa-solid fa-circle-check";
+            showToast("Lien de partage copié avec succès !", "success");
+        };
+
+        // Système personnalisé de notifications Toasts
+        function showToast(message, type = "info") {
+            const toast = document.getElementById("toast");
+            const icon = document.getElementById("toast-icon");
+            const msgEl = document.getElementById("toast-message");
+
+            msgEl.innerText = message;
+
+            if (type === "success") {
+                icon.className = "fa-solid fa-circle-check text-success-500 text-lg";
+            } else if (type === "error") {
+                icon.className = "fa-solid fa-circle-exclamation text-red-500 text-lg";
+            } else {
+                icon.className = "fa-solid fa-circle-info text-brand-500 text-lg";
+            }
+
+            toast.classList.remove("translate-y-10", "opacity-0");
+            toast.classList.add("translate-y-0", "opacity-100");
+
+            setTimeout(() => {
+                toast.classList.add("translate-y-10", "opacity-0");
+                toast.classList.remove("translate-y-0", "opacity-100");
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
